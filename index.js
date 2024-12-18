@@ -153,7 +153,7 @@ app.patch("/update-user-info", async (req, res) => {
 });
 
 // GET: Fetch All Resorts
-app.get(" ", async (req, res) => {
+app.get("/all-resorts", async (req, res) => {
   try {
     const resorts = await allResortDataCollection.find().toArray();
     res.send(resorts);
