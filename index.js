@@ -39,7 +39,7 @@ async function run() {
     console.log("Connected to MongoDB successfully!");
   } catch (error) {
     console.error("Failed to connect to MongoDB:", error.message);
-    process.exit(1); // Exit if unable to connect
+    process.exit(1);
   }
 }
 
@@ -50,7 +50,7 @@ app.get("/", (req, res) => {
   res.send("Interval server is running");
 });
 
-// POST: Add User
+// POST: Add or Update User in AuthProvider
 app.post("/users", async (req, res) => {
   try {
     const { name, email } = req.body;
@@ -60,16 +60,25 @@ app.post("/users", async (req, res) => {
 
     const existingUser = await usersDataCollection.findOne({ email });
     if (existingUser) {
-      return res.status(409).send("User with this email already exists");
+      // Update user data if it already exists
+      const updatedUser = await usersDataCollection.updateOne(
+        { email },
+        { $set: { ...req.body } }
+      );
+      return res.status(200).send({
+        message: "User updated successfully",
+        updated: updatedUser.modifiedCount > 0,
+      });
     }
 
+    // Add new user if not existing
     const result = await usersDataCollection.insertOne(req.body);
     res.status(201).send({
-      message: "User successfully added",
+      message: "User added successfully",
       userId: result.insertedId,
     });
   } catch (error) {
-    console.error("Error adding user:", error.message);
+    console.error("Error adding/updating user:", error.message);
     res.status(500).send("Internal Server Error");
   }
 });
@@ -100,30 +109,6 @@ app.get("/all-users", async (req, res) => {
     res.send(users);
   } catch (error) {
     console.error("Error fetching all users:", error.message);
-    res.status(500).send("Internal Server Error");
-  }
-});
-
-// PATCH: Update User Role to Admin
-app.patch("/update-user", async (req, res) => {
-  try {
-    const { email, isAdmin } = req.body;
-    if (!email || typeof isAdmin !== "boolean") {
-      return res.status(400).send("Email and isAdmin status are required");
-    }
-
-    const result = await usersDataCollection.updateOne(
-      { email },
-      { $set: { isAdmin } }
-    );
-
-    if (result.modifiedCount === 0) {
-      return res.status(404).send("User not found or role not updated");
-    }
-
-    res.send({ success: true, message: "User role updated successfully" });
-  } catch (error) {
-    console.error("Error updating user role:", error.message);
     res.status(500).send("Internal Server Error");
   }
 });
