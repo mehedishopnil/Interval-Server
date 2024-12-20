@@ -10,7 +10,7 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// Ensure the environment variable is loaded
+// Ensure the DBPASSWORD environment variable is set
 if (!process.env.DBPASSWORD) {
   console.error("Error: DBPASSWORD is not set in the environment variables.");
   process.exit(1);
@@ -27,19 +27,23 @@ const client = new MongoClient(uri, {
   },
 });
 
-let db, allResortDataCollection, usersDataCollection;
+// Collections
+let db;
+let allResortDataCollection;
+let usersDataCollection;
 
-// Connect to MongoDB
-async function run() {
+// MongoDB Connection Function
+async function connectToDatabase() {
   try {
+    console.log("Connecting to MongoDB...");
     await client.connect();
     db = client.db("Interval");
     allResortDataCollection = db.collection("AllResorts");
     usersDataCollection = db.collection("users");
     console.log("Connected to MongoDB successfully!");
   } catch (error) {
-    console.error("Failed to connect to MongoDB:", error.message);
-    process.exit(1);
+    console.error("MongoDB connection failed:", error.message);
+    process.exit(1); // Exit the application if the connection fails
   }
 }
 
@@ -55,31 +59,29 @@ app.post("/users", async (req, res) => {
   try {
     const { name, email } = req.body;
     if (!name || !email) {
-      return res.status(400).send("Name and email are required");
+      return res.status(400).json({ message: "Name and email are required" });
     }
 
     const existingUser = await usersDataCollection.findOne({ email });
     if (existingUser) {
-      // Update user data if it already exists
       const updatedUser = await usersDataCollection.updateOne(
         { email },
-        { $set: { ...req.body } }
+        { $set: req.body }
       );
-      return res.status(200).send({
+      return res.status(200).json({
         message: "User updated successfully",
         updated: updatedUser.modifiedCount > 0,
       });
     }
 
-    // Add new user if not existing
     const result = await usersDataCollection.insertOne(req.body);
-    res.status(201).send({
+    res.status(201).json({
       message: "User added successfully",
       userId: result.insertedId,
     });
   } catch (error) {
     console.error("Error adding/updating user:", error.message);
-    res.status(500).send("Internal Server Error");
+    res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
@@ -88,17 +90,17 @@ app.get("/users", async (req, res) => {
   try {
     const { email } = req.query;
     if (!email) {
-      return res.status(400).send("Email query parameter is required");
+      return res.status(400).json({ message: "Email query parameter is required" });
     }
 
     const user = await usersDataCollection.findOne({ email });
     if (!user) {
-      return res.status(404).send("User not found");
+      return res.status(404).json({ message: "User not found" });
     }
-    res.send(user);
+    res.json(user);
   } catch (error) {
     console.error("Error fetching user data:", error.message);
-    res.status(500).send("Internal Server Error");
+    res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
@@ -106,10 +108,10 @@ app.get("/users", async (req, res) => {
 app.get("/all-users", async (req, res) => {
   try {
     const users = await usersDataCollection.find().toArray();
-    res.send(users);
+    res.json(users);
   } catch (error) {
     console.error("Error fetching all users:", error.message);
-    res.status(500).send("Internal Server Error");
+    res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
@@ -118,7 +120,7 @@ app.patch("/update-user-info", async (req, res) => {
   try {
     const { email, ...updateData } = req.body;
     if (!email) {
-      return res.status(400).send("Email is required");
+      return res.status(400).json({ message: "Email is required" });
     }
 
     const result = await usersDataCollection.updateOne(
@@ -127,13 +129,15 @@ app.patch("/update-user-info", async (req, res) => {
     );
 
     if (result.modifiedCount === 0) {
-      return res.status(404).send("User not found or information not updated");
+      return res.status(404).json({
+        message: "User not found or information not updated",
+      });
     }
 
-    res.send({ success: true, message: "User information updated successfully" });
+    res.json({ message: "User information updated successfully" });
   } catch (error) {
     console.error("Error updating user info:", error.message);
-    res.status(500).send("Internal Server Error");
+    res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
@@ -141,10 +145,10 @@ app.patch("/update-user-info", async (req, res) => {
 app.get("/all-resorts", async (req, res) => {
   try {
     const resorts = await allResortDataCollection.find().toArray();
-    res.send(resorts);
+    res.json(resorts);
   } catch (error) {
     console.error("Error fetching resorts:", error.message);
-    res.status(500).send("Internal Server Error");
+    res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
@@ -154,6 +158,7 @@ app.listen(port, () => {
 });
 
 // Initialize MongoDB Connection
-run().catch((error) => {
+connectToDatabase().catch((error) => {
   console.error("Error initializing server:", error.message);
+  process.exit(1);
 });
