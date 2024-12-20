@@ -1,8 +1,10 @@
+// Import dependencies
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 const { MongoClient, ServerApiVersion } = require("mongodb");
 
+// Initialize app and set port
 const app = express();
 const port = process.env.PORT || 5000;
 
@@ -10,7 +12,7 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// Ensure the DBPASSWORD environment variable is set
+// Validate environment variables
 if (!process.env.DBPASSWORD) {
   console.error("Error: DBPASSWORD is not set in the environment variables.");
   process.exit(1);
@@ -19,6 +21,7 @@ if (!process.env.DBPASSWORD) {
 // MongoDB connection URI
 const uri = `mongodb+srv://IntervalServer:${process.env.DBPASSWORD}@cluster0.sju0f.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
+// Initialize MongoDB client
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -46,8 +49,6 @@ async function connectToDatabase() {
     process.exit(1); // Exit the application if the connection fails
   }
 }
-
-// Routes
 
 // Home Route
 app.get("/", (req, res) => {
@@ -144,6 +145,9 @@ app.patch("/update-user-info", async (req, res) => {
 // GET: Fetch All Resorts
 app.get("/all-resorts", async (req, res) => {
   try {
+    if (!allResortDataCollection) {
+      throw new Error("Database collection 'AllResorts' not initialized.");
+    }
     const resorts = await allResortDataCollection.find().toArray();
     res.json(resorts);
   } catch (error) {
@@ -162,3 +166,4 @@ connectToDatabase().catch((error) => {
   console.error("Error initializing server:", error.message);
   process.exit(1);
 });
+  
